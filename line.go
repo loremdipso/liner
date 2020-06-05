@@ -12,6 +12,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/loremdipso/fancy_printer"
 )
 
 type action int
@@ -308,8 +310,84 @@ func calculateColumns(screenWidth int, items []string) (numColumns, numRows, max
 	return
 }
 
-func (s *State) printedTabs(items []string) func(tabDirection) (string, error) {
+// mta
+func (s *State) printedTabs(items []string, query string) func(tabDirection) (string, error) {
+	prefix := longestCommonSubstring(items, query)
+	return func(direction tabDirection) (string, error) {
+		if len(items) == 1 {
+			return items[0], nil
+		}
+
+		if len(items) > 30 {
+			fmt.Printf("\nDisplay all %d possibilities? (y or n) ", len(items))
+			for {
+				next, err := s.readNext()
+				if err != nil {
+					return prefix, err
+				}
+
+				if key, ok := next.(rune); ok {
+					switch key {
+					case 'n', 'N':
+						return prefix, nil
+					case 'y', 'Y':
+						break
+					case ctrlC, ctrlD, cr, lf:
+						s.restartPrompt()
+					}
+				}
+			}
+		}
+
+		fmt.Printf("\n\n")
+		fancy_printer.PrintArrayAsGrid(items, false, false)
+		return prefix, nil
+	}
+}
+
+// mta
+func longestCommonSubstring(strs []string, currentString string) string {
+	if len(strs) == 0 {
+		return ""
+	}
+
+	longest := strings.TrimRight(strs[0], "\uFFFD")
+
+	// TODO: do we have to worry about any rune weirdness?
+
+	// our answer will be, at most, this entire string
+	prefix_loc := strings.Index(longest, currentString)
+	postfix_loc := prefix_loc + len(currentString)
+
+prefix_loop:
+	for i := prefix_loc - 1; i >= 0; i-- {
+		tempString := string(longest[i]) + currentString
+		for _, str := range strs {
+			if !strings.Contains(str, tempString) {
+				break prefix_loop
+			}
+		}
+		currentString = tempString
+	}
+
+postfix_loop:
+	for i := postfix_loc; i < len(longest); i++ {
+		tempString := currentString + string(longest[i])
+		for _, str := range strs {
+			if !strings.Contains(str, tempString) {
+				break postfix_loop
+			}
+		}
+		currentString = tempString
+	}
+
+	// Remove trailing partial runes
+	return strings.TrimRight(currentString, "\uFFFD")
+}
+
+func (s *State) printedTabsOriginal(items []string) func(tabDirection) (string, error) {
 	numTabs := 1
+
 	prefix := longestCommonPrefix(items)
 	return func(direction tabDirection) (string, error) {
 		if len(items) == 1 {
@@ -378,7 +456,7 @@ func (s *State) tabComplete(p []rune, line []rune, pos int) ([]rune, int, interf
 	direction := tabForward
 	tabPrinter := s.circularTabs(list)
 	if s.tabStyle == TabPrints {
-		tabPrinter = s.printedTabs(list)
+		tabPrinter = s.printedTabs(list, string(line))
 	}
 
 	for {
@@ -601,11 +679,12 @@ func (s *State) Prompt(prompt string) (string, error) {
 // including a trailing newline character. An io.EOF error is returned if the user
 // signals end-of-file by pressing Ctrl-D.
 func (s *State) PromptWithSuggestion(prompt string, text string, pos int) (string, error) {
-	for _, r := range prompt {
-		if unicode.Is(unicode.C, r) {
-			return "", ErrInvalidPrompt
-		}
-	}
+	// mta - took this out
+	// for _, r := range prompt {
+	// 	if unicode.Is(unicode.C, r) {
+	// 		return "", ErrInvalidPrompt
+	// 	}
+	// }
 	if s.inputRedirected || !s.terminalSupported {
 		return s.promptUnsupported(prompt)
 	}
