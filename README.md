@@ -52,7 +52,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/peterh/liner"
+	"github.com/loremdipso/liner"
 )
 
 var (
@@ -98,4 +98,4 @@ func main() {
 }
 ```
 
-For documentation, see http://godoc.org/github.com/peterh/liner
+For documentation, see http://godoc.org/github.com/loremdipso/liner
