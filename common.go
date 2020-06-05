@@ -145,6 +145,13 @@ func (s *State) AppendHistory(item string) {
 	}
 }
 
+// mta
+func (s *State) GetHistory() []string {
+	s.historyMutex.Lock()
+	defer s.historyMutex.Unlock()
+	return s.history
+}
+
 // ClearHistory clears the scrollback history.
 func (s *State) ClearHistory() {
 	s.historyMutex.Lock()
